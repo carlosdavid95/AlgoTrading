@@ -1,0 +1,142 @@
+# Packages
+import bt                          # Backtesting package                   
+import warnings
+import numpy as np                 # Mathematical computation package
+import talib as ta                 # Trading Analytics Library
+import pandas as pd                # Data science fundamentals package
+import seaborn as sns              # Advanced visual graphics package
+from tqdm.notebook import tqdm     # Loop progress bar
+import matplotlib.pyplot as plt    # Visual graphics package
+
+# Configurations
+%matplotlib inline
+warnings.filterwarnings('ignore')       # Don't show warnings
+
+# Define Portfolio
+
+tickers = ('aapl, msft, v, nvda, ma, pypl, intc, adbe, crm, avgo, csco, acn, txn, qcom, orcl, amat, ibm, now, intu, mu, amd, fis, lrcx, adp, fisv')
+start = '2012-07-01'
+end = '2018-12-31'
+start2 = '2018-12-01'
+end2 = '2020-12-31'
+
+# Get stock adjusted closed prices data from Yahoo Finance using the bt package
+riskfree = bt.get('^IRX', start=start)
+riskfree_rate = float(riskfree.mean())/100
+data = bt.get(tickers, start = start, end = end)
+data2 = bt.get(tickers, start = start2, end = end2)
+
+# Configurations
+%matplotlib inline 
+plt.rcParams["figure.figsize"] = (15, 5) # Set figure size for notebook
+
+# Placeholder for bands
+upper_bands = []
+middle_bands = []
+lower_bands = []
+
+# Loop over each ticker in data
+for ticker in data.columns:
+
+    # Calculate BBANDS
+    upper, middle, lower  = ta.BBANDS(data[ticker],     # Data
+                                      timeperiod = 30,  # n Period simple moving average
+                                      nbdevup    = 1,   # k Standard deviation upwards  
+                                      nbdevdn    = 1)   # k Standard deviation downwards
+    upper_bands.append(upper)
+    middle_bands.append(middle)
+    lower_bands.append(lower)
+    
+    # Plot the BBANDS
+    plt.figure(figsize=(15, 5))
+    plt.plot(data[ticker], color='green', label='Price')
+    plt.plot(upper, color='tomato', label="Upper σ")
+    plt.plot(middle, color='blue', label='SMA Period')
+    plt.plot(lower, color='tomato', label='Lower σ')
+
+    # Customize and show the plot
+    plt.legend(loc='upper left')
+    plt.title(ticker+' (σ)', fontsize=25)
+    plt.show()  
+    
+    ## Define Signal
+
+# Create placeholder for signal
+lower_bands_df = pd.DataFrame()
+
+# Copy over lower bands for our tickers and transpose the dataframe
+lower_bands_df = pd.DataFrame.from_records(data = lower_bands).T
+
+# Rename columns to match our adjustced close dataframe
+lower_bands_df.columns = data.columns
+
+# Define signal as True when adjust close is less than lower band
+signal = data < lower_bands_df
+
+# Define the strategy
+strategy = bt.Strategy('Bollinger Bands',
+                       [bt.algos.SelectWhere(signal),         
+                        bt.algos.WeighEqually(),
+                        bt.algos.Rebalance()])
+
+# Create the Backtest algorithm using the historical adjusted close
+backtest_bbands = bt.Backtest(strategy, data)
+
+# Run the backtest and store the results
+results = bt.run(backtest_bbands)
+results.set_riskfree_rate(riskfree_rate)
+
+# Plot equity progression
+results.display()
+results.plot()
+
+
+
+
+# Placeholder for bands
+upper_bands2 = []
+middle_bands2 = []
+lower_bands2 = []
+
+# Loop over each ticker in data
+for ticker in data2.columns:
+
+    # Calculate BBANDS
+    upper, middle, lower  = ta.BBANDS(data2[ticker],    # Data
+                                      timeperiod = 30,  # n Period simple moving average
+                                      nbdevup    = 1,   # k Standard deviation upwards  
+                                      nbdevdn    = 1)   # k Standard deviation downwards
+    upper_bands2.append(upper)
+    middle_bands2.append(middle)
+    lower_bands2.append(lower)
+    
+## Define Signal
+
+# Create placeholder for signal
+lower_bands_df2 = pd.DataFrame()
+
+# Copy over lower bands for our tickers and transpose the dataframe
+lower_bands_df2 = pd.DataFrame.from_records(data = lower_bands2).T
+
+# Rename columns to match our adjustced close dataframe
+lower_bands_df2.columns = data.columns
+
+# Define signal as True when adjust close is less than lower band
+signal2 = data2 < lower_bands_df2
+
+# Define the strategy
+strategy2 = bt.Strategy('Bollinger Bands',
+                       [bt.algos.SelectWhere(signal2),         
+                        bt.algos.WeighEqually(),
+                        bt.algos.Rebalance()])
+
+# Create the Backtest algorithm using the historical adjusted close
+test_bbands = bt.Backtest(strategy2, data2)
+
+# Run the backtest and store the results
+results2 = bt.run(test_bbands)
+results2.set_riskfree_rate(riskfree_rate)
+
+# Plot equity progression
+results2.display()
+results2.plot()
